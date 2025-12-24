@@ -9,6 +9,7 @@ import Billing from './Billing';
 import System from './System';
 import Activity from './Activity';
 import FeatureFlags from './FeatureFlags';
+import Deployments from './Deployments';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading, isSuperadmin } = useAuth();
@@ -56,6 +57,7 @@ export default function Pages() {
         <Route path="/users" element={<ProtectedLayout><Users /></ProtectedLayout>} />
         <Route path="/tenants" element={<ProtectedLayout><Tenants /></ProtectedLayout>} />
         <Route path="/billing" element={<ProtectedLayout><Billing /></ProtectedLayout>} />
+        <Route path="/deployments" element={<ProtectedLayout><Deployments /></ProtectedLayout>} />
         <Route path="/system" element={<ProtectedLayout><System /></ProtectedLayout>} />
         <Route path="/activity" element={<ProtectedLayout><Activity /></ProtectedLayout>} />
         <Route path="/featureflags" element={<ProtectedLayout><FeatureFlags /></ProtectedLayout>} />

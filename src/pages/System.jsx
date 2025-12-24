@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatBytes, formatNumber } from '@/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatBytes, formatNumber, formatDateTime } from '@/utils';
 import {
   Server,
   Database,
@@ -17,32 +18,59 @@ import {
   XCircle,
   Play,
   Trash2,
+  Bell,
+  TrendingUp,
+  Clock,
+  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function System() {
   const [health, setHealth] = useState(null);
   const [dbStats, setDbStats] = useState(null);
+  const [alerts, setAlerts] = useState([]);
+  const [uptime, setUptime] = useState(null);
+  const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [metricsRange, setMetricsRange] = useState('1h');
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    loadMetrics();
+  }, [metricsRange]);
 
   async function loadData() {
     setLoading(true);
     try {
-      const [healthData, dbData] = await Promise.all([
+      const [healthData, dbData, alertsData, uptimeData] = await Promise.all([
         api.getSystemHealth().catch(() => null),
         api.getDatabaseStats().catch(() => null),
+        api.getAlerts(null, 10).catch(() => ({ alerts: [] })),
+        api.getUptime().catch(() => null),
       ]);
       setHealth(healthData);
       setDbStats(dbData);
+      setAlerts(alertsData.alerts || []);
+      setUptime(uptimeData);
     } catch (err) {
       toast.error('Failed to load system data: ' + err.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadMetrics() {
+    try {
+      const metricsData = await api.getSystemMetrics(metricsRange);
+      setMetrics(metricsData);
+    } catch (err) {
+      console.error('Failed to load metrics:', err);
     }
   }
 
@@ -56,6 +84,26 @@ export default function System() {
       toast.error(`Failed to run ${operation}: ` + err.message);
     } finally {
       setMaintenanceLoading(false);
+    }
+  }
+
+  async function handleAcknowledgeAlert(alertId) {
+    try {
+      await api.acknowledgeAlert(alertId);
+      toast.success('Alert acknowledged');
+      loadData();
+    } catch (err) {
+      toast.error('Failed to acknowledge alert: ' + err.message);
+    }
+  }
+
+  async function handleResolveAlert(alertId) {
+    try {
+      await api.resolveAlert(alertId);
+      toast.success('Alert resolved');
+      loadData();
+    } catch (err) {
+      toast.error('Failed to resolve alert: ' + err.message);
     }
   }
 
@@ -83,6 +131,15 @@ export default function System() {
       default:
         return <Badge variant="secondary">Unknown</Badge>;
     }
+  };
+
+  const getSeverityBadge = (severity) => {
+    const variants = {
+      critical: 'destructive',
+      warning: 'warning',
+      info: 'secondary',
+    };
+    return <Badge variant={variants[severity] || 'secondary'}>{severity}</Badge>;
   };
 
   if (loading) {
@@ -148,6 +205,8 @@ export default function System() {
         <TabsList>
           <TabsTrigger value="database">Database</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
+          <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+          <TabsTrigger value="alerts">Alerts</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
         </TabsList>
 
@@ -304,6 +363,181 @@ export default function System() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="monitoring">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">System Metrics</h3>
+              <Select value={metricsRange} onValueChange={setMetricsRange}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1h">Last Hour</SelectItem>
+                  <SelectItem value="6h">Last 6 Hours</SelectItem>
+                  <SelectItem value="24h">Last 24 Hours</SelectItem>
+                  <SelectItem value="7d">Last 7 Days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Uptime</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-green-500" />
+                    <div className="text-2xl font-bold">{uptime?.uptime_percentage || 99.9}%</div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {uptime?.uptime_days || 0} days
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Avg Response Time</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-blue-500" />
+                    <div className="text-2xl font-bold">{metrics?.avg_response_time || 0}ms</div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Last {metricsRange}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Request Rate</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-purple-500" />
+                    <div className="text-2xl font-bold">{formatNumber(metrics?.requests_per_second || 0)}</div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    req/sec
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Error Rate</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                    <div className="text-2xl font-bold">{metrics?.error_rate || 0}%</div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Last {metricsRange}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Service Uptime</CardTitle>
+                <CardDescription>Availability over the last 30 days</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {services.map((service) => (
+                    <div key={service.name}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">{service.name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {uptime?.[service.name.toLowerCase().replace(/\s+/g, '_')]?.uptime || 99.9}%
+                        </span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-green-500 transition-all"
+                          style={{ width: `${uptime?.[service.name.toLowerCase().replace(/\s+/g, '_')]?.uptime || 99.9}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="alerts">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bell className="w-5 h-5" />
+                    Active Alerts
+                  </CardTitle>
+                  <CardDescription>{alerts.length} alerts require attention</CardDescription>
+                </div>
+                <Button onClick={loadData} variant="outline" size="sm">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {alerts.length === 0 ? (
+                <div className="text-center py-8">
+                  <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-2" />
+                  <p className="text-muted-foreground">No active alerts</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {alerts.map((alert) => (
+                    <div key={alert.id} className="p-4 border rounded-lg">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            {getSeverityBadge(alert.severity)}
+                            <span className="font-medium">{alert.title}</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">{alert.message}</p>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                            <span>Service: {alert.service || 'System'}</span>
+                            <span>•</span>
+                            <span>{alert.created_at ? formatDateTime(alert.created_at) : 'N/A'}</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          {!alert.acknowledged && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAcknowledgeAlert(alert.id)}
+                            >
+                              Acknowledge
+                            </Button>
+                          )}
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleResolveAlert(alert.id)}
+                          >
+                            Resolve
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="maintenance">

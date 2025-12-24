@@ -245,6 +245,91 @@ class SuperAdminAPI {
       body: JSON.stringify({ operation }),
     });
   }
+
+  // ===== DEPLOYMENT ENDPOINTS =====
+
+  async listDeployments(limit = 50, offset = 0) {
+    return this.request(`/superadmin/deployments?limit=${limit}&offset=${offset}`);
+  }
+
+  async getDeployment(deploymentId) {
+    return this.request(`/superadmin/deployments/${deploymentId}`);
+  }
+
+  async triggerDeployment(service, environment, options = {}) {
+    return this.request('/superadmin/deployments', {
+      method: 'POST',
+      body: JSON.stringify({ service, environment, ...options }),
+    });
+  }
+
+  async rollbackDeployment(deploymentId) {
+    return this.request(`/superadmin/deployments/${deploymentId}/rollback`, {
+      method: 'POST',
+    });
+  }
+
+  async getDeploymentLogs(deploymentId) {
+    return this.request(`/superadmin/deployments/${deploymentId}/logs`);
+  }
+
+  async getBuildStatus(buildId) {
+    return this.request(`/superadmin/builds/${buildId}`);
+  }
+
+  async listBuilds(limit = 20, offset = 0) {
+    return this.request(`/superadmin/builds?limit=${limit}&offset=${offset}`);
+  }
+
+  async triggerBuild(service, branch = 'main') {
+    return this.request('/superadmin/builds', {
+      method: 'POST',
+      body: JSON.stringify({ service, branch }),
+    });
+  }
+
+  async cancelBuild(buildId) {
+    return this.request(`/superadmin/builds/${buildId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  // ===== HEALTH MONITORING ENDPOINTS =====
+
+  async getDetailedHealth() {
+    return this.request('/superadmin/health/detailed');
+  }
+
+  async getServiceMetrics(service, timeRange = '1h') {
+    return this.request(`/superadmin/metrics/${service}?range=${timeRange}`);
+  }
+
+  async getSystemMetrics(timeRange = '1h') {
+    return this.request(`/superadmin/metrics/system?range=${timeRange}`);
+  }
+
+  async getAlerts(severity = null, limit = 50) {
+    let url = `/superadmin/alerts?limit=${limit}`;
+    if (severity) url += `&severity=${severity}`;
+    return this.request(url);
+  }
+
+  async acknowledgeAlert(alertId) {
+    return this.request(`/superadmin/alerts/${alertId}/acknowledge`, {
+      method: 'POST',
+    });
+  }
+
+  async resolveAlert(alertId) {
+    return this.request(`/superadmin/alerts/${alertId}/resolve`, {
+      method: 'POST',
+    });
+  }
+
+  async getUptime(service = null) {
+    const url = service ? `/superadmin/uptime/${service}` : '/superadmin/uptime';
+    return this.request(url);
+  }
 }
 
 export const api = new SuperAdminAPI();
