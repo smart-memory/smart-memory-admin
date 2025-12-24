@@ -47,4 +47,4 @@ jobs:
           uv sync
           uv run --package sm-hetzner sm deploy ui admin
 
-# REDEPLOY
+# REDEPLOY 2
