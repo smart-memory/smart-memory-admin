@@ -9,6 +9,11 @@ concurrency:
   group: deploy-admin-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  SERVER_IP: 135.181.102.1
+  SERVER_USER: root
+  DEPLOY_PATH: /opt/smartmemory
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -37,7 +42,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.HETZNER_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H 135.181.102.1 >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ env.SERVER_IP }} >> ~/.ssh/known_hosts
 
       - name: Deploy
         env:
@@ -47,4 +52,4 @@ jobs:
           uv sync
           uv run --package sm-hetzner sm deploy ui admin
 
-# REDEPLOY 2
+# REDEPLOY 3
