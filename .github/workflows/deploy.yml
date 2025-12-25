@@ -24,7 +24,7 @@ jobs:
         env:
           VITE_API_URL: https://api.smartmemory.ai
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Setup SSH
