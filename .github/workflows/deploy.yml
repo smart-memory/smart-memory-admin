@@ -5,58 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: deploy-admin-${{ github.ref }}
-  cancel-in-progress: true
-
-env:
-  SERVER_IP: 135.181.102.1
-  SERVER_USER: root
-  DEPLOY_PATH: /opt/smartmemory
-
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    
-    steps:
-      - name: Checkout smart-memory-admin
-        uses: actions/checkout@v4
-        with:
-          path: smart-memory-admin
-
-      - name: Checkout smart-memory-infra
-        uses: actions/checkout@v4
-        with:
-          repository: smart-memory/smart-memory-infra
-          path: smart-memory-infra
-          token: ${{ secrets.GH_PAT }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          cat > ~/.ssh/id_ed25519 << 'EOF'
-          ${{ secrets.HETZNER_SSH_KEY }}
-          EOF
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ env.SERVER_IP }} >> ~/.ssh/known_hosts
-
-      - name: Deploy
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          cd smart-memory-infra
-          uv sync
-          uv run --package sm-hetzner sm deploy ui admin
-
-# REDEPLOY 3
+    uses: smart-memory/smart-memory-infra/.github/workflows/deploy-ui.yml@main
+    with:
+      config_path: deploy.config.yml
+    secrets: inherit

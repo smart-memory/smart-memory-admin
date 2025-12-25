@@ -1,0 +1,6 @@
+type: ui
+ui_name: admin
+ui_path: .
+api_url: https://api.smartmemory.ai
+domain: admin.smartmemory.ai
+server_path: /var/www/admin
