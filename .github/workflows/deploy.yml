@@ -5,9 +5,47 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  SERVER_IP: 135.181.102.1
+
 jobs:
   deploy:
-    uses: smart-memory/smart-memory-infra/.github/workflows/deploy-ui.yml@main
-    with:
-      config_path: deploy.config.yml
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Build UI
+        env:
+          VITE_API_URL: https://api.smartmemory.ai
+        run: |
+          npm ci
+          npm run build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HETZNER_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ env.SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Hetzner
+        run: |
+          ssh root@${{ env.SERVER_IP }} "mkdir -p /var/www/admin"
+          rsync -avz --checksum --delete dist/ root@${{ env.SERVER_IP }}:/var/www/admin/
+
+      - name: Verify deployment
+        run: |
+          for i in {1..10}; do
+            if curl -sf "https://admin.smartmemory.ai" > /dev/null; then
+              echo "✅ Site is live at https://admin.smartmemory.ai"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "⚠️ Site may not be responding"
